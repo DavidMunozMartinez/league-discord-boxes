@@ -2,8 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const { default: axios } = require('axios');
 const API_URL = 'http://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champion.json';
-const PORT = 8080;
 const app = express();
+
+process.env.PORT = 8080;
+const PORT = process.env.PORT;
 
 app.use(express.json());
 app.use(cors());
