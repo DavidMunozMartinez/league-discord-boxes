@@ -4,14 +4,14 @@ const { default: axios } = require('axios');
 const API_URL = 'http://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champion.json';
 const app = express();
 
-process.env.PORT = 8080;
-const PORT = process.env.PORT;
+// process.env.PORT = 8080;
+// const PORT = process.env.PORT;
 
 app.use(express.json());
 app.use(cors());
 app.options('*',cors());
 
-app.listen(PORT, () => {
+app.listen(process.env.PORT || 5000, () => {
     // console.log('Aqui merengues');
 
     // axios.get(API_URL + 'Ezreal.json', {
