@@ -1,3 +1,4 @@
+require('dotenv').config(); //initialize dotenv
 const express = require('express');
 const cors = require('cors');
 const Discord = require('discord.js');
@@ -6,14 +7,10 @@ const API_URL = 'http://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champ
 const CHAMP_URL = 'https://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champion/';
 const app = express();
 
-let test = {};
-let i = 0;
-
 app.use(express.json());
 app.use(cors());
 app.options('*',cors());
 
-require('dotenv').config(); //initialize dotenv
 
 const client = new Discord.Client({ intents: ["GUILDS", "GUILD_MESSAGES"]}); //create new client
 
@@ -24,19 +21,13 @@ client.on('ready', () => {
 client.on('message', (message) => {
     if (message.channelId !== "843700429450641419" || message.author.id === "987880205873999932")
     return;
-    console.log(i++);
 
     if (isCommand(message.content)) {
         getChamp().then((data) => {
             message.channel.send(data.skinName);
             message.channel.send(data.image);
-            // message.channel.send(data.skin);
-            // message.channel.send(`https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${data.name}_0.jpg`);
         });
     }
-
-    test[message.author.id] = true;
-    // console.log(message);
 });
 
 function isCommand(text) {
@@ -48,7 +39,7 @@ function isCommand(text) {
 client.login(process.env.DISCORD_TOKEN); //login bot using token
 
 app.listen(process.env.PORT || 5000, () => {
-    console.log('Aqui merengues');
+    console.log('Aqui merengues: ', process.env.PORT || 5000);
 });
 
 function getChamp() {
@@ -76,23 +67,15 @@ function getRandomChamp(champList) {
 
 function getChampData(name) {
     return new Promise((resolve, reject) => {
-        let url = CHAMP_URL 
         axios
             .get(CHAMP_URL + name + '.json')
             .then((res) => {
-                // console.log(res);
-                // console.log(res);
-                // console.log(res.data.data[name]);
                 let skin = displaySkin(name, res.data.data[name]);
-                // console.log(skin);
                 resolve(skin);
             })
             .catch((reason) => {
                 console.log('trono el champ data we');
                 console.log(reason.message);
-
-                // reject(reason);
-                // console.log(reason.message);
             });
 
     });
