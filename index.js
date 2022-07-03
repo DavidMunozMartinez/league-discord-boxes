@@ -9,7 +9,7 @@ const CHAMP_URL =
   "https://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champion/";
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
-const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.ceyoj.gcp.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.MONGO_USER}:${process.env.PASSWORD}@cluster0.ceyoj.gcp.mongodb.net/?retryWrites=true&w=majority`;
 
 const mongoClient = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -158,25 +158,72 @@ function displaySkin(name, data) {
 }
 
 function giveUserChest(idDiscordUser) {
+  let chance = Math.floor(Math.random() * 100);
+  let cajitas = 0;
+  const chestPerChance = {
+    50: 1,
+    80: 2,
+    90: 3,
+    98: 4,
+    100: 5
+  };
+  
+  prob = Object.keys(chestPerChance);
+  console.log(chance);
+  for(let i = 0; i < prob.length; i++){
+    if (chance < prob[i]) {
+      cajitas = chestPerChance[prob[i]];
+      console.log(cajitas);
+      break;
+    }
+  }
+
   return new Promise((resolve, reject) => {
-    UsersCollection.findOneAndUpdate(
-      {
-        idDiscord: idDiscordUser,
-      },
-      {
-        $inc: { cajitas: 1 },
-      },
-      {
-        upsert: true,
-        returnDocument: 'after'
+    let promise;
+    UsersCollection.findOne({
+      idDiscord: idDiscordUser
+    }).then((user) => {
+      if (user) {
+        let timeLapsed = new Date().getTime() - user.lastChest;
+        let aMinute = 60 * 1000;
+        let anHour = aMinute * 60;
+        let remainingTime = (anHour * 3) - timeLapsed
+
+        if (remainingTime <= aMinute) {
+          time = 'te quedan unos segundos';
+        } else if (remainingTime > aMinute && remainingTime <= anHour) {
+          let minutes = Math.round(remainingTime / aMinute);
+          time = `esperese ${minutes} minutos`;
+        } else if (remainingTime > anHour) {
+          let hours = Math.round(remainingTime / (60 * 1000 * 60));
+          time = hours > 1 ? `faltan ${hours} horas` : 'masomeno una hora'
+        }
+
+        if (time > 1000 * 60 * 60 * 3) {
+          promise = user.updateOne({
+            $inc: { cajitas: cajitas },
+            $set: { lastChest: new Date().getTime() }
+          }).then(() => `<@${idDiscordUser}> Obtuviste ${cajitas} cajitas, ahora tienes ${res.value.cajitas} cajitas`);
+        } else {
+          // let remaining = new Date(time).toLocaleTimeString();
+          promise = Promise.resolve(`Ya pediste, ${time}`);
+        }
+      } else {
+        promise = UsersCollection.insertOne({
+          idDiscord: idDiscordUser,
+          cajitas: cajitas,
+          lastChest: new Date().getTime()
+        }).then(() => `<@${idDiscordUser}> Obtuviste ${cajitas} cajitas, ahora tienes ${res.value.cajitas} cajitas`);
       }
-    )
-      .then((res) => {
-        resolve(`<@${idDiscordUser}> Tienes ${res.value.cajitas} cajitas`);
+
+      promise
+      .then((message) => {
+        resolve(message);
       })
       .catch((err) => {
-        reject("chingatumadrewe no sabes programar");
+        reject("chingatumadrewe no sabes programar")
       });
+    });
   });
 }
 
@@ -204,6 +251,7 @@ function assignSkinToUser(idDiscordUser, data) {
     UsersCollection.findOneAndUpdate(
       {
         idDiscord: idDiscordUser,
+        cajitas: { $gt: 0 }
       },
       {
         $inc: {
@@ -212,15 +260,18 @@ function assignSkinToUser(idDiscordUser, data) {
         }
       },
       {
-        upsert: true,
         returnDocument: 'after'
       }
     )
       .then((res) => {
         console.log(res);
-        let plural = res.value.cajitas > 1;
-        let sentence = `Te ${plural ? 'quedan ' + res.value.cajitas : 'queda una'} cajita${plural ? 's' : ''}`
-        resolve(`<@${idDiscordUser}> ${sentence}`);
+        if (res.value && res.value.cajitas) {
+          let plural = res.value.cajitas > 1;
+          let sentence = `Te ${plural ? 'quedan ' + res.value.cajitas : 'queda una'} cajita${plural ? 's' : ''}`
+          resolve(`<@${idDiscordUser}> ${sentence}`);
+        } else {
+          resolve(`<@${idDiscordUser}> No tienes cajitas we`)
+        }
       })
       .catch((err) => {
         console.log(err);
