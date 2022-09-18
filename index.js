@@ -1,25 +1,46 @@
-require("dotenv").config(); //initialize dotenv
-const express = require("express");
-const cors = require("cors");
+//require("dotenv").config(); //initialize dotenv
+
+// const utils = require('./utilities');
+
+import dotenv from 'dotenv';
+dotenv.config();
+
+import * as utils from './utilities.js';
+
+import express from 'express';
+import cors from 'cors';
+import Discord  from 'discord.js';
+import axios from 'axios';
+
+// const express = require("express");
+
+/* const cors = require("cors");
 const Discord = require("discord.js");
-const { default: axios } = require("axios");
+
+
+
+const { default: axios } = require("axios"); */
 const API_URL =
   "http://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champion.json";
 const CHAMP_URL =
   "https://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champion/";
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+// const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
-const uri = `mongodb+srv://${process.env.MONGO_USER}:${process.env.PASSWORD}@cluster0.ceyoj.gcp.mongodb.net/?retryWrites=true&w=majority`;
+// const uri = `mongodb+srv://${process.env.MONGO_USER}:${process.env.PASSWORD}@cluster0.ceyoj.gcp.mongodb.net/?retryWrites=true&w=majority`;
 
-const mongoClient = new MongoClient(uri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverApi: ServerApiVersion.v1,
-});
-let UsersCollection;
-mongoClient.connect((err) => {
-  UsersCollection = mongoClient.db("user").collection("users");
-});
+// const { UsersCollection } = require('./src/mongo-handler');
+
+import { UsersCollection } from './src/mongo-handler.js';
+
+// const mongoClient = new MongoClient(uri, {
+//   useNewUrlParser: true,
+//   useUnifiedTopology: true,
+//   serverApi: ServerApiVersion.v1,
+// });
+// let UsersCollection;
+// mongoClient.connect((err) => {
+//   UsersCollection = mongoClient.db("user").collection("users");
+// });
 
 app.use(express.json());
 app.use(cors());
@@ -53,10 +74,14 @@ discordClient.on("message", (message) => {
 
   executeCommand(message.content.split(" ")[0], message.author.id).then(
     (arrayMessages) => {
+      if (arrayMessages.length) {
         //value: arrays of strings
         arrayMessages.forEach(messageValue => {
             message.channel.send(messageValue || "");
         });
+      } else {
+        message.channel.send(messageValue || '');
+      }
     }
   );
 
@@ -159,7 +184,7 @@ function displaySkin(name, data) {
 
 function giveUserChest(idDiscordUser) {
   let chance = Math.floor(Math.random() * 100);
-  let cajitas = 0;
+  let cajitasToGive = 0;
   const chestPerChance = {
     50: 1,
     80: 2,
@@ -168,12 +193,12 @@ function giveUserChest(idDiscordUser) {
     100: 5
   };
   
-  prob = Object.keys(chestPerChance);
+  let prob = Object.keys(chestPerChance);
   console.log(chance);
   for(let i = 0; i < prob.length; i++){
     if (chance < prob[i]) {
-      cajitas = chestPerChance[prob[i]];
-      console.log(cajitas);
+      cajitasToGive = chestPerChance[prob[i]];
+      console.log(cajitasToGive);
       break;
     }
   }
@@ -184,40 +209,40 @@ function giveUserChest(idDiscordUser) {
       idDiscord: idDiscordUser
     }).then((user) => {
       if (user) {
-        let timeLapsed = new Date().getTime() - user.lastChest;
-        let aMinute = 60 * 1000;
-        let anHour = aMinute * 60;
-        let remainingTime = (anHour * 3) - timeLapsed
+        let currentTime = new Date().getTime();
+        let timeLapsed = currentTime - user.lastChest;
+        const aMinute = 60 * 1000;
+        const anHour = aMinute * 60;
 
-        if (remainingTime <= aMinute) {
-          time = 'te quedan unos segundos';
-        } else if (remainingTime > aMinute && remainingTime <= anHour) {
-          let minutes = Math.round(remainingTime / aMinute);
-          time = `esperese ${minutes} minutos`;
-        } else if (remainingTime > anHour) {
-          let hours = Math.round(remainingTime / (60 * 1000 * 60));
-          time = hours > 1 ? `faltan ${hours} horas` : 'masomeno una hora'
-        }
+        let remainingTimeInMs = (anHour * 3) - timeLapsed;
+        let remainingTimeInMinutes = utils.millisToMinutes(remainingTimeInMs);
 
-        if (time > 1000 * 60 * 60 * 3) {
+        if (remainingTimeInMinutes <= 0) {
           promise = user.updateOne({
-            $inc: { cajitas: cajitas },
-            $set: { lastChest: new Date().getTime() }
-          }).then(() => `<@${idDiscordUser}> Obtuviste ${cajitas} cajitas, ahora tienes ${res.value.cajitas} cajitas`);
+            $inc: { cajitas: cajitasToGive },
+            $set: { lastChest: currentTime }
+          }).then(() => `<@${idDiscordUser}> Obtuviste ${cajitasToGive} cajitas, ahora tienes ${res.value.cajitas} cajitas`);
         } else {
-          // let remaining = new Date(time).toLocaleTimeString();
-          promise = Promise.resolve(`Ya pediste, ${time}`);
+          let msg = "Puedes volver a pedir en ";
+          // Calcular los mensajes
+          if (remainingTimeInMinutes < 60) {
+            msg += remainingTimeInMinutes + " minutos";
+          } else {
+            msg += utils.minToHours(remainingTimeInMinutes) + " horas~";
+          }
+
+          promise = Promise.resolve(`Ya pediste. \n ${msg}`);
         }
       } else {
         promise = UsersCollection.insertOne({
           idDiscord: idDiscordUser,
-          cajitas: cajitas,
+          cajitas: cajitasToGive,
           lastChest: new Date().getTime()
-        }).then(() => `<@${idDiscordUser}> Obtuviste ${cajitas} cajitas, ahora tienes ${res.value.cajitas} cajitas`);
+        }).then(() => `<@${idDiscordUser}> Obtuviste ${cajitasToGive} cajitas, ahora tienes ${res.value.cajitas} cajitas`);
       }
 
-      promise
-      .then((message) => {
+      promise.then((message) => {
+        console.log(message);
         resolve(message);
       })
       .catch((err) => {
