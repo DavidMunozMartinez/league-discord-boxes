@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { UsersCollection } from './mongo-handler.js';
 const API_URL =
   "http://ddragon.leagueoflegends.com/cdn/12.11.1/data/en_US/champion.json";
 const CHAMP_URL =
@@ -52,4 +53,37 @@ export function displaySkin(name, data) {
   };
 
   return champData;
+}
+
+export function assignSkinToUser(idDiscordUser, data) {
+  let $filter = {
+    idDiscord: idDiscordUser,
+    cajitas: { $gt: 0 },
+  };
+  let $incremet = {
+    $inc: {
+      cajitas: -1,
+      ["skins." + data.champName + "." + data.idSkin + ".count"]: 1,
+    },
+  };
+  let $returnDoc = { returnDocument: "after" };
+  return new Promise((resolve, reject) => {
+    UsersCollection.findOneAndUpdate($filter, $incremet, $returnDoc)
+      .then((res) => {
+        console.log(res);
+        if (res.value && res.value.cajitas) {
+          let plural = res.value.cajitas > 1;
+          let sentence = `Te ${
+            plural ? "quedan " + res.value.cajitas : "queda una"
+          } cajita${plural ? "s" : ""}`;
+          resolve(`<@${idDiscordUser}> ${sentence}`);
+        } else {
+          resolve(`<@${idDiscordUser}> No tienes cajitas we`);
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+        reject("chingatumadrewe no sabes programar");
+      });
+  });
 }
